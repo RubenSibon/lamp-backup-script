@@ -29,14 +29,14 @@ fi
 # First parameter is message to log
 # Second parameter should be type of message and one of "info" or "error"
 function log {
-  MSG=$1
-  TYPE=$2
-  TIMESTAMP=`date`;
+  local MSG=$1
+  local TYPE=$2
+  local TIMESTAMP=`date`;
 
   # Color for each log type
-  LOG_TYPE=$TYPE;
+  local LOG_TYPE=$TYPE;
 
-  LOG_MSG="$LOG_TYPE $MSG"
+  local LOG_MSG="$LOG_TYPE $MSG"
 
   echo "$TIMESTAMP  $LOG_TYPE  $LOG_MSG\n" >> $BACKUP_PATH/log.log;
   echo $LOG_MSG
