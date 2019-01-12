@@ -7,8 +7,10 @@
 # This script backs up the unique file directories and databases for each site found in Apache's enabled virtual hosts.
 # If one or more sites has the cli tool of Drupal (drush), Grav (gpm) or WordPress (wp-cli) it will use the backup function of that tool.
 #
-# Author: Ruben J. Sibon
+# Author: Ruben J. Sibon (Webricolage)
 # Mail: mail@webricolage.nl
+#
+# License: MIT
 
 ##
 # PRELIMINARY CHECKS
@@ -19,7 +21,6 @@ if [ "$(whoami)" != "root" ]; then
   echo "Root privileges are required to run this, try running with sudo...";
   exit 2;
 fi
-
 
 ##
 # FUNCTIONS
@@ -65,10 +66,9 @@ function checkSiteType {
   # Pass these lists to the appropriate backup scripts.
 }
 
-
-###
-## GLOBAL CONFIG
-###
+##
+# GLOBAL CONFIG
+##
 
 # Backup settings
 ## Basic
@@ -98,7 +98,6 @@ GZIP=/bin/gzip;
 DATE=/bin/date;
 MK=/bin/mkdir;
 MYSQLDUMP=/usr/bin/mysqldump;
-
 
 ##
 # EXECUTION
