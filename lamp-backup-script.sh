@@ -1,9 +1,29 @@
 #!/bin/bash
 
-# BACKUP WEBSITES ON A LAMP (Linux Apache MySQL/MariaDB PHP) SERVER
+# BACKUP WEBSITES ON A LAMP
+#
+# LAMP = Linux, Apache, MySQL/MariaDB, PHP server
+#
+# This script backs up the unique file directories and databases for each site found in Apache's enabled virtual hosts.
+# If one or more sites has the cli tool of Drupal (drush), Grav (gpm) or WordPress (wp-cli) it will use the backup function of that tool.
 #
 # Author: Ruben J. Sibon
 # Mail: mail@webricolage.nl
+
+##
+# PRELIMINARY CHECKS
+##
+
+# Root permissions are required
+if [ "$(whoami)" != "root" ]; then
+  echo "Root privileges are required to run this, try running with sudo...";
+  exit 2;
+fi
+
+
+##
+# FUNCTIONS
+##
 
 # Log to file and terminal.
 # First parameter is message to log
@@ -24,7 +44,7 @@ function log {
 
 # Quit the program
 function quit {
-  echo $1;
+  log $1 $2;
   exit;
 }
 
@@ -45,11 +65,10 @@ function checkSiteType {
   # Pass these lists to the appropriate backup scripts.
 }
 
-# Root permissions are required
-if [ "$(whoami)" != "root" ]; then
-  echo "Root privileges are required to run this, try running with sudo...";
-  exit 2;
-fi
+
+###
+## GLOBAL CONFIG
+###
 
 # Backup settings
 ## Basic
@@ -80,9 +99,12 @@ DATE=/bin/date;
 MK=/bin/mkdir;
 MYSQLDUMP=/usr/bin/mysqldump;
 
-## [[ DEBUG ]] ##
-echo "$BASE_DIR$BACKUP_DIR";
-## [[ DEBUG ]] ##
+
+##
+# EXECUTION
+##
+
+log "Backup location: $BASE_DIR$BACKUP_DIR" "info";
 
 # Make new backup directory if it does not exist.
 if [ ! -d "$BACKUP_PATH" ]; then
@@ -110,15 +132,16 @@ done
 ## Sort and clean vhosts and log them.
 sort -u $BACKUP_PATH/vhosts-all.log > $BACKUP_PATH/vhosts-list.log;
 rm $BACKUP_PATH/vhosts-all.log;
-echo "All Apache Virtual Host webroots:";
+log "All Apache Virtual Host webroots:" "info";
 cat $BACKUP_PATH/vhosts-list.log;
+cat $BACKUP_PATH/vhosts-list.log | log $1;
 
 # Move to backup directory and create timestamped folder.
-echo "Moving to \"$BACKUP_PATH\" ...";
+log "Moving to \"$BACKUP_PATH\" ...";
 cd $BACKUP_PATH;
 TIMESTAMP=`$NOW`;
 mkdir $TIMESTAMP;
 cd $TIMESTAMP;
 
 # Exit backup script.
-quit "Success! Exiting backup...";
+quit "Success! Exiting backup..." "info";
