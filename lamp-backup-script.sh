@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # BACKUP WEBSITES ON A LAMP
 #
@@ -13,134 +13,130 @@
 # License: MIT
 
 ##
-# PRELIMINARY CHECKS
+# Setup
 ##
 
-# Root permissions are required
+# Root permissions are required.
 if [ "$(whoami)" != "root" ]; then
   echo "Root privileges are required to run this, try running with sudo...";
   exit 2;
 fi
 
-##
-# FUNCTIONS
-##
+# Include partials.
+source ./_config.sh;
+source ./_functions.sh;
 
-# Log to file and terminal.
-# First parameter is message to log
-# Second parameter should be type of message and one of "info" or "error"
-function log {
-  local MSG=$1
-  local TYPE=$2
-  local TIMESTAMP=`date`;
-
-  # Color for each log type
-  local LOG_TYPE=$TYPE;
-
-  local LOG_MSG="$LOG_TYPE $MSG"
-
-  echo "$TIMESTAMP  $LOG_TYPE  $LOG_MSG\n" >> $BACKUP_PATH/log.log;
-  echo $LOG_MSG
-}
-
-# Quit the program
-function quit {
-  log $1 $2;
-  exit;
-}
-
-# On fail log and print error message and call the quit function
-function fail {
-  log $1 'error';
-  quit;
-}
-
-# Check what type of site we have. Can be one of:
-#   1) "default" - Plain HTML site or unknown CMS;
-#   2) "drupal" - A Drupal site with a local Drush;
-#   3) "grav" - A Grav site with bin/gpm;
-#   4) "wordpress" - A WordPress site with wp-cli.
-function checkSiteType {
-  # Check each vhost webroot and test in what category it should go.
-  # Add each webroot directory and sitename to a seperate array.
-  # Pass these lists to the appropriate backup scripts.
-}
-
-##
-# GLOBAL CONFIG
-##
-
-# Backup settings
-## Basic
-BASE_DIR="/opt/";
-BACKUP_DIR="site-backups";
-BACKUP_PATH="$BASE_DIR$BACKUP_DIR";
-NOW="date +%Y%m%d%H%M%S";
-
-## Webroots
-WEBROOT="/var/www/sites/";
-
-## Apache
-HOSTS="/etc/hosts";
-VHOSTS_PATH="/etc/apache2/sites-enabled/"
-PATTERN="DocumentRoot"
-
-# MySQL
-DBUSER="root";
-DBHOST="localhost";
-DEFAULTCHARSET="utf8";
-
-# Binaries
-MYSQL=/usr/bin/mysql;
-GREP=/bin/grep;
-REMOVE=/bin/rm;
-GZIP=/bin/gzip;
-DATE=/bin/date;
-MK=/bin/mkdir;
-MYSQLDUMP=/usr/bin/mysqldump;
-
-##
-# EXECUTION
-##
-
+# Initial log to console.
+log "START NEW BACKUPS" "info";
 log "Backup location: $BASE_DIR$BACKUP_DIR" "info";
 
+# Go to backup root directory.
+cd $BASE_DIR;
+
 # Make new backup directory if it does not exist.
-if [ ! -d "$BACKUP_PATH" ]; then
-  printf "Backup directory not found.\nMaking directory \"$BACKUP_DIR\" in \"$BASE_DIR\" ...\n";
-  cd $BASE_DIR;
-  mkdir $BACKUP_DIR;
+if [ ! -d "$BACKUP_DIR" ]; then
+  makeBackupDir $BACKUP_DIR;
 fi
 
-# Collect site webroots from vhosts and log them.
-## Remove any pre-existing vhost logs.
-if [ -f "$BACKUP_PATH/vhosts-all.log" ]; then
-  rm $BACKUP_PATH/vhosts-all.log;
+cd $BACKUP_PATH;
+
+if [ $LOG_TO_CONSOLE > 0 ]; then
+  printf "Moving to backup dir: $( pwd )\n";
 fi
 
-## Go to vhosts directory.
+##
+# Collect webroots from vhosts
+##
+
+# Remove any pre-existing vhosts log.
+if [ -f "$BACKUP_PATH/$LOG_VHOSTS" ]; then
+  rm $BACKUP_PATH/$LOG_VHOSTS;
+  rm $BACKUP_PATH/$LOG_VHOSTS.tmp;
+fi
+
+# Create temporary vhosts and webroots log.
+makeFile $LOG_VHOSTS.tmp;
+
+# Go to vhosts directory.
 cd $VHOSTS_PATH;
 shopt -s nullglob;
 
-## Get the webroot for each site in vhosts.
+# Get the site name and webroot for each site in vhosts.
 for f in *; do
-   cat $f | \
-     sed -e "/DocumentRoot.*/!d" | sed "s/[[:blank:]]//g" | sed "s/DocumentRoot//" >> $BACKUP_PATH/vhosts-all.log;
+  SITE=$( cat $f | sed -e "/ServerName.*/!d" | sed "s/[[:blank:]]//g" | sed "s/ServerName//" | sed "/^#/ d" );
+
+  if [ ! $SITE ]; then
+    continue
+  fi
+
+  SITE="${SITE}RANDOM$( cat $f | sed -e "/DocumentRoot.*/!d" | sed "s/[[:blank:]]//g" | sed "s/DocumentRoot//" | sed "/^#/ d" )";
+  # cat $f | \
+  #   sed -e "/ServerName.*/!d" | sed "s/[[:blank:]]//g" | sed "s/ServerName//" | sed '/^#/ d' >> $BACKUP_PATH/$LOG_VHOSTS.tmp;
+  # cat $f | \
+  #   sed -e "/DocumentRoot.*/!d" | sed "s/[[:blank:]]//g" | sed "s/DocumentRoot//" | sed '/^#/ d' >> $BACKUP_PATH/$LOG_VHOSTS.tmp;
+
+  echo "$SITE" >> $BACKUP_PATH/$LOG_VHOSTS.tmp;
 done
 
-## Sort and clean vhosts and log them.
-sort -u $BACKUP_PATH/vhosts-all.log > $BACKUP_PATH/vhosts-list.log;
-rm $BACKUP_PATH/vhosts-all.log;
-log "All Apache Virtual Host webroots:" "info";
-cat $BACKUP_PATH/vhosts-list.log;
-cat $BACKUP_PATH/vhosts-list.log | log $1;
+# Sort and clean vhosts and webroots and log them.
+sort -u $BACKUP_PATH/$LOG_VHOSTS.tmp > $BACKUP_PATH/$LOG_VHOSTS;
+
+# Go back to backup path and remove temporary vhosts log file.
+cd $BACKUP_PATH;
+rm $LOG_VHOSTS.tmp;
+
+log "All site webroots can be found in \"${LOG_WEBROOTS}\"." "info";
+log "All site names can be found in \"${LOG_VHOSTS}\"." "info";
+log "Virtual hosts to be backed up:";
+
+if [ $LOG_TO_CONSOLE > 0 ]; then
+  cat $LOG_VHOSTS;
+  cat $LOG_VHOSTS >> $LOG_BACKUP;
+fi
+
+# Add webroots to array.
+readarray vhostArray < $LOG_VHOSTS;
+
+##
+# Backing up
+##
 
 # Move to backup directory and create timestamped folder.
-log "Moving to \"$BACKUP_PATH\" ...";
+log "Move to \"$BACKUP_PATH\" ...";
 cd $BACKUP_PATH;
 TIMESTAMP=`$NOW`;
 mkdir $TIMESTAMP;
-cd $TIMESTAMP;
+cd $BACKUP_PATH/$TIMESTAMP;
+
+echo $BACKUP_PATH/$TIMESTAMP;
+
+# echo "${vhostArray[@]}";
+
+for v in ${vhostArray[@]}; do
+  WEBNAME="$( echo $v | sed -e "/RANDOM.*/!d" | sed "s/[[:blank:]]//g" | sed "s/RANDOM.*//" )";
+
+  if [ ! $WEBNAME ]; then
+    continue
+  fi
+
+  log "Backing up \"${WEBNAME}\"" "info";
+  # echo "Webname: ${WEBNAME}";
+
+  mkdir $BACKUP_PATH/$TIMESTAMP/$WEBNAME;
+  cd $BACKUP_PATH/$TIMESTAMP/$WEBNAME;
+
+  WEBROOT=$( echo $v | sed -e "/RANDOM.*/!d" | sed "s/[[:blank:]]//g" | sed "s/^.*RANDOM//" );
+
+  # echo "Webroot: ${WEBROOT}";
+  echo $WEBROOT >> $WEBNAME.txt;
+
+  # rsync -avzP $WEBROOT $BACKUP_PATH/$TIMESTAMP/$WEBNAME/
+  rsync -avzP $WEBROOT $BACKUP_PATH/$TIMESTAMP/$WEBNAME/
+done
+
+cd $BACKUP_PATH;
+
+log "Backup successful! Backups are located in \"${BACKUP_PATH}\"." "success";
 
 # Exit backup script.
-quit "Success! Exiting backup..." "info";
+quit "Exit backup script..." "info";
