@@ -108,10 +108,6 @@ TIMESTAMP=`$NOW`;
 mkdir $TIMESTAMP;
 cd $BACKUP_PATH/$TIMESTAMP;
 
-echo $BACKUP_PATH/$TIMESTAMP;
-
-# echo "${vhostArray[@]}";
-
 for v in ${vhostArray[@]}; do
   WEBNAME="$( echo $v | sed -e "/RANDOM.*/!d" | sed "s/[[:blank:]]//g" | sed "s/RANDOM.*//" )";
 
